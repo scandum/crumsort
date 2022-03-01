@@ -151,6 +151,8 @@ Benchmarks
 The following benchmark was on WSL gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04) using the [wolfsort](https://github.com/scandum/wolfsort) benchmark.
 The source code was compiled using g++ -O3 -w -fpermissive bench.c. The bar graph shows the best run out of 100 on 100,000 32 bit integers. Comparisons for fluxsort, crumsort and pdqsort are inlined.
 
+![fluxsort vs crumsort vs pdqsort](https://github.com/scandum/crumsort/blob/main/images/graph1.png)
+
 <details><summary>data table</summary>
         
 |      Name |    Items | Type |     Best |  Average |  Compares | Samples |     Distribution |
