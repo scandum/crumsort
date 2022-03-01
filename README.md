@@ -8,7 +8,7 @@ Crumsort starts out with an analyzer that sorts fully in-order or reverse-order 
 
 Partitioning
 ------------
-Partitioning is performed in a top-down manner similar to quicksort. Fluxsort obtains the pseudomedian of 9 for partitions smaller than 2048 elements, and the pseudomedian of 25 otherwise. The median element obtained will be referred to as the pivot. Partitions that grow smaller than 24 elements are sorted with quadsort.
+Partitioning is performed in a top-down manner similar to quicksort. Crumsort obtains the pseudomedian of 9 for partitions smaller than 2048 elements, and the pseudomedian of 25 otherwise. The median element obtained will be referred to as the pivot. Partitions that grow smaller than 24 elements are sorted with quadsort.
 
 Fulcrum Partition
 -----------------
@@ -122,7 +122,7 @@ The C implementation of crumsort supports long doubles and 8, 16, 32, and 64 bit
 
 Interface
 ---------
-Fluxsort uses the same interface as qsort, which is described in [man qsort](https://man7.org/linux/man-pages/man3/qsort.3p.html).
+Crumsort uses the same interface as qsort, which is described in [man qsort](https://man7.org/linux/man-pages/man3/qsort.3p.html).
 
 Big O
 -----
@@ -141,6 +141,10 @@ Big O
 │crumsort       ││n      │n log n│n log n││1      │1      │1      ││no    ││yes      ││yes      │
 └───────────────┘└───────┴───────┴───────┘└───────┴───────┴───────┘└──────┘└─────────┘└─────────┘
 ```
+
+Porting
+-------
+People wanting to port crumsort might want to have a look at [fluxsort](https://github.com/scandum/fluxsort), which is a little bit simpler because it's stable and out of place.
 
 Benchmarks
 ----------
