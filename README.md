@@ -81,7 +81,7 @@ int fulcrum_partition(int array[], int head, int tail)
         }
 }
 ```
-Instead of using multiple swaps the fulcrum partition creates a 1 element swap space, with the pivot holding the original data. Doing so turns the 3 assignments from the swap into 2 assignment. Overall the fulcrum partition has a 10-20% performance improvement on random data.
+Instead of using multiple swaps the fulcrum partition creates a 1 element swap space, with the pivot holding the original data. Doing so turns the 3 assignments from the swap into 2 assignments. Overall the fulcrum partition has a 10-20% performance improvement on random data.
 
 The biggest downside is that hoare partitioning takes advantage of leaving the pivot in the distribution, allowing it to perform an unguarded loop. This gives the hoare partition a 2x performance improvement in the worst case. This is significant enough for anyone who experimented with such a partitioning scheme to abandon it as useless.
 
