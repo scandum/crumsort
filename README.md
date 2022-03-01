@@ -14,11 +14,10 @@ Fulcrum Partition
 -----------------
 After obtaining a pivot the array is parsed from start to end using the fulcrum partitioning scheme. The scheme is similar to the original quicksort scheme known as the Hoare partition with some notable differences. The differences are perhaps best explained with two code examples.
 ```c
-#define swap(l, r) int swap = l; l = r; r = swap;
-
 int hoare_partition(int array[], int head, int tail)
 {
         int pivot = head++;
+        int swap;
 
         while (1)
         {
@@ -34,11 +33,11 @@ int hoare_partition(int array[], int head, int tail)
 
                 if (head >= tail)
                 {
-                        swap(array[pivot], array[tail]);
+                        swap = array[pivot]; array[pivot] = array[tail]; array[tail] = swap;
 
                         return tail;
                 }
-                swap(array[head], array[tail]);
+                swap = array[head]; array[head] = array[tail]; array[tail] = swap;
         }
 }
 ```
@@ -82,7 +81,7 @@ int fulcrum_partition(int array[], int head, int tail)
         }
 }
 ```
-Instead of using multiple swaps the fulcrum partition creates a 1 element swap space, with the pivot holding the original data. Doing so turns the 3 assignments from the swap into 2 assignments. Overall the fulcrum partition has a 10-20% performance improvement on random data.
+Instead of using multiple swaps the fulcrum partition creates a 1 element swap space, with the pivot holding the original data. Doing so turns the 3 assignments from the swap into 1 assignment. Overall the fulcrum partition has a 10-20% performance improvement on random data.
 
 The biggest downside is that hoare partitioning takes advantage of leaving the pivot in the distribution, allowing it to perform an unguarded loop. This gives the hoare partition a 2x performance improvement in the worst case. This is significant enough for anyone who experimented with such a partitioning scheme to abandon it as useless.
 
