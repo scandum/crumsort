@@ -155,6 +155,18 @@ Big O
 └───────────────┘└───────┴───────┴───────┘└───────┴───────┴───────┘└──────┘└─────────┘└─────────┘
 ```
 
+Visualization
+-------------
+In the visualization below two tests are performed on 512 elements.
+
+1. Random order
+2. Random % 10
+
+The upper half shows the swap memory (32 elements) and the bottom half shows the main memory.
+Colors are used to differentiate various operations.
+
+[![crumsort benchmark](/images/crumsort.gif)](https://www.youtube.com/watch?v=NRREkZeNaC4)
+
 Benchmarks
 ----------
 
