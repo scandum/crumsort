@@ -109,12 +109,6 @@ Large array optimizations
 -------------------------
 For partitions larger than 65536 elements crumsort obtains the median of 128 or 256. It does so by swapping 128 or 256 random elements to the start of the array, next sorting them with quadsort, and taking the center element. Using pseudomedian instead of median selection on large arrays is slower, likely due to cache pollution.
 
-Memory
-------
-Crumsort uses 512 elements of stack memory, which is shared with quadsort. Recursion requires log n stack memory.
-
-Crumsort can be configured to use sqrt(n) memory, with a minimum memory requirement of 32 elements.
-
 Data Types
 ----------
 The C implementation of crumsort supports long doubles and 8, 16, 32, and 64 bit data types. By using pointers it's possible to sort any other data type, like strings.
@@ -122,6 +116,18 @@ The C implementation of crumsort supports long doubles and 8, 16, 32, and 64 bit
 Interface
 ---------
 Crumsort uses the same interface as qsort, which is described in [man qsort](https://man7.org/linux/man-pages/man3/qsort.3p.html).
+
+Memory
+------
+Crumsort uses 512 elements of stack memory, which is shared with quadsort. Recursion requires log n stack memory.
+
+Crumsort can be configured to use sqrt(n) memory, with a minimum memory requirement of 32 elements.
+
+Performance
+-----------
+Crumsort will begin to outperform fluxsort on random data right around 1,000,000 elements. Since it runs on 512 elements of auxiliary memory the sorting of ordered data will be slower for larger arrays.
+
+Because of the partitioning scheme crumsort is slower than pdqsort when sorting long doubles. Fixing this is on my todo list.
 
 Big O
 -----
@@ -206,4 +212,40 @@ The source code was compiled using g++ -O3 -w -fpermissive bench.c. The bar grap
 |  fluxsort |   100000 |   32 | 0.001664 | 0.001692 |         1 |     100 |     bit reversal |
 |  crumsort |   100000 |   32 | 0.001793 | 0.001859 |         1 |     100 |     bit reversal |
 |   pdqsort |   100000 |   32 | 0.002656 | 0.002683 |         1 |     100 |     bit reversal |
+</details>
+
+![fluxsort vs crumsort vs pdqsort](https://github.com/scandum/crumsort/blob/main/images/graph2.png)
+
+<details><summary>data table</summary>
+
+|      Name |    Items | Type |     Best |  Average |     Loops | Samples |     Distribution |
+| --------- | -------- | ---- | -------- | -------- | --------- | ------- | ---------------- |
+|  fluxsort | 10000000 |   32 | 0.260900 | 0.267100 |         1 |     100 |  random 10000000 |
+|  crumsort | 10000000 |   32 | 0.237100 | 0.239200 |         1 |     100 |  random 10000000 |
+|   pdqsort | 10000000 |   32 | 0.337900 | 0.338700 |         1 |     100 |  random 10000000 |
+
+|  fluxsort |  1000000 |   32 | 0.212900 | 0.214900 |        10 |     100 |   random 1000000 |
+|  crumsort |  1000000 |   32 | 0.208700 | 0.213500 |        10 |     100 |   random 1000000 |
+|   pdqsort |  1000000 |   32 | 0.302600 | 0.304600 |        10 |     100 |   random 1000000 |
+
+|  fluxsort |   100000 |   32 | 0.183000 | 0.184400 |       100 |    1000 |    random 100000 |
+|  crumsort |   100000 |   32 | 0.180400 | 0.190400 |       100 |    1000 |    random 100000 |
+|   pdqsort |   100000 |   32 | 0.267200 | 0.269000 |       100 |    1000 |    random 100000 |
+
+|  fluxsort |    10000 |   32 | 0.156300 | 0.157000 |      1000 |    1000 |     random 10000 |
+|  crumsort |    10000 |   32 | 0.158700 | 0.159300 |      1000 |    1000 |     random 10000 |
+|   pdqsort |    10000 |   32 | 0.236500 | 0.237800 |      1000 |    1000 |     random 10000 |
+
+|  fluxsort |     1000 |   32 | 0.131400 | 0.132100 |     10000 |   10000 |      random 1000 |
+|  crumsort |     1000 |   32 | 0.128500 | 0.129200 |     10000 |   10000 |      random 1000 |
+|   pdqsort |     1000 |   32 | 0.204200 | 0.205900 |     10000 |   10000 |      random 1000 |
+
+|  fluxsort |      100 |   32 | 0.105000 | 0.105400 |    100000 |    1000 |       random 100 |
+|  crumsort |      100 |   32 | 0.100100 | 0.100600 |    100000 |    1000 |       random 100 |
+|   pdqsort |      100 |   32 | 0.167300 | 0.168600 |    100000 |    1000 |       random 100 |
+
+|  fluxsort |       10 |   32 | 0.044500 | 0.045200 |   1000000 |    1000 |        random 10 |
+|  crumsort |       10 |   32 | 0.046900 | 0.047600 |   1000000 |    1000 |        random 10 |
+|   pdqsort |       10 |   32 | 0.089700 | 0.091500 |   1000000 |    1000 |        random 10 |
+
 </details>
