@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2014-2021 Igor van den Hoven ivdhoven@gmail.com
+	Copyright (C) 2014-2022 Igor van den Hoven ivdhoven@gmail.com
 */
 
 /*
@@ -667,8 +667,6 @@ void FUNC(tail_merge)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, siz
 
 	while (block < nmemb && block <= swap_size)
 	{
-		pta = array;
-
 		for (pta = array ; pta + block < pte ; pta += block * 2)
 		{
 			if (pta + block * 2 < pte)
@@ -904,8 +902,6 @@ void FUNC(blit_merge)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, siz
 
 	while (block < nmemb)
 	{
-		pta = array;
-
 		for (pta = array ; pta + block < pte ; pta += block * 2)
 		{
 			if (pta + block * 2 < pte)
