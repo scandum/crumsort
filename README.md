@@ -139,7 +139,7 @@ Because of the partitioning scheme crumsort is slower than pdqsort when sorting 
 
 Big O
 -----
-```cobol
+```
                  ┌───────────────────────┐┌───────────────────────┐
                  │comparisons            ││swap memory            │
 ┌───────────────┐├───────┬───────┬───────┤├───────┬───────┬───────┤┌──────┐┌─────────┐┌─────────┐
