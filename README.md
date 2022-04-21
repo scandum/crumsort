@@ -83,7 +83,7 @@ int fulcrum_partition(int array[], int head, int tail)
 ```
 Instead of using multiple swaps the fulcrum partition creates a 1 element swap space, with the pivot holding the original data. Doing so turns the 3 assignments from the swap into 2 assignments. Overall the fulcrum partition has a 10-20% performance improvement on random data.
 
-The biggest downside is that hoare partitioning takes advantage of leaving the pivot in the distribution, allowing it to perform an unguarded loop. This gives the hoare partition a 2x performance improvement in the worst case. This is significant enough for anyone who experimented with such a partitioning scheme to abandon it as useless.
+The biggest downside is that hoare partitioning takes advantage of leaving the pivot in the distribution, allowing it to perform an unguarded loop. This gives the hoare partition a 2x performance improvement in the worst case. If anyone experimented with such a partitioning scheme in the past they may have abonded it as useless.
 
 However, the swap space of the fulcrum partition can easily be increased from 1 to 32 elements to allow it to perform 16 unguarded comparisons at a time, which in turn also allows it to perform these comparisons in a branchless manner with no additional overhead.
 
@@ -133,7 +133,7 @@ Crumsort can be configured to use sqrt(n) memory, with a minimum memory requirem
 
 Performance
 -----------
-Crumsort will begin to outperform fluxsort on random data right around 1,000,000 elements. Since it runs on 512 elements of auxiliary memory the sorting of ordered data will be slower for larger arrays.
+Crumsort will begin to outperform fluxsort on random data right around 1,000,000 elements. Since it runs on 512 elements of auxiliary memory the sorting of ordered data will be slower than fluxsort for larger arrays.
 
 Because of the partitioning scheme crumsort is slower than pdqsort when sorting long doubles. Fixing this is on my todo list.
 
@@ -171,7 +171,7 @@ Benchmarks
 ----------
 
 The following benchmark was on WSL gcc version 7.5.0 (Ubuntu 7.5.0-3ubuntu1~18.04) using the [wolfsort](https://github.com/scandum/wolfsort) benchmark.
-The source code was compiled using g++ -O3 -w -fpermissive bench.c. The bar graph shows the best run out of 100 on 100,000 32 bit integers. Comparisons for fluxsort, crumsort and pdqsort are inlined.
+The source code was compiled using g++ -O3 -w -fpermissive bench.c. Each test was ran 100 times on 100,000 elements. A table with the best and average time in seconds can be uncollapsed below the bar graph. Comparisons for fluxsort, crumsort and pdqsort are inlined.
 
 ![fluxsort vs crumsort vs pdqsort](https://github.com/scandum/crumsort/blob/main/images/graph1.png)
 
