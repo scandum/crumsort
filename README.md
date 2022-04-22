@@ -8,7 +8,7 @@ Crumsort starts out with an analyzer that sorts fully in-order or reverse-order 
 
 Partitioning
 ------------
-Partitioning is performed in a top-down manner similar to quicksort. Crumsort obtains the pseudomedian of 9 for partitions smaller than 2048 elements, and the pseudomedian of 25 otherwise. The median element obtained will be referred to as the pivot. Partitions that grow smaller than 24 elements are sorted with quadsort.
+Partitioning is performed in a top-down manner similar to quicksort. Crumsort obtains the pseudomedian of 9 for partitions smaller than 2048 elements, and the median of 16 otherwise. The median element obtained will be referred to as the pivot. Partitions that grow smaller than 24 elements are sorted with quadsort.
 
 Fulcrum Partition
 -----------------
