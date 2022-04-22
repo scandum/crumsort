@@ -87,7 +87,7 @@ The swap space of the fulcrum partition can easily be increased from 1 to 32 ele
 
 Worst case handling
 -------------------
-To avoid run-away recursion crumsort switches to quadsort for both partitions if one partition is less than 1/16th the size of the other partition. On a distribution of random unique values the observed chance of a false positive is 1 in 1,336 for the pseudomedian of 9 and approximately 1 in 4 million for the pseudomedian of 25.
+To avoid run-away recursion crumsort switches to quadsort for both partitions if one partition is less than 1/16th the size of the other partition. On a distribution of random unique values the observed chance of a false positive is 1 in 1,336 for the pseudomedian of 9 and approximately 1 in 500,000 for the median of 16.
 
 Combined with the analyzer crumsort starts out with this makes the existence of killer patterns unlikely, other than a 33-50% performance slowdown by prematurely triggering the use of quadsort.
 
