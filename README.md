@@ -49,25 +49,25 @@ int fulcrum_partition(int array[], int head, int tail)
 
         while (1)
         {
-                if (head == tail)
-                {
-                        array[head] = pivot;
-                        return head;
-                }
-
                 if (array[tail] > pivot)
                 {
                         tail--;
                         continue;
                 }
+
+                if (head >= tail)
+                {
+                        array[head] = pivot;
+                        return head;
+                }
                 array[head++] = array[tail];
 
                 while (1)
                 {
-                        if (head == tail)
+                        if (head >= tail)
                         {
-                                array[tail] = pivot;
-                                return tail;
+                                array[head] = pivot;
+                                return head;
                         }
 
                         if (array[head] <= pivot)
@@ -81,11 +81,9 @@ int fulcrum_partition(int array[], int head, int tail)
         }
 }
 ```
-Instead of using multiple swaps the fulcrum partition creates a 1 element swap space, with the pivot holding the original data. Doing so turns the 3 assignments from the swap into 2 assignments. Overall the fulcrum partition has a 10-20% performance improvement on random data.
+Instead of using multiple swaps the fulcrum partition creates a 1 element swap space, with the pivot holding the original data. Doing so turns the 3 assignments from the swap into 2 assignments. Overall the fulcrum partition has a 10-20% performance improvement.
 
-The biggest downside is that hoare partitioning takes advantage of leaving the pivot in the distribution, allowing it to perform an unguarded loop. This gives the hoare partition a 2x performance improvement in the worst case. If anyone experimented with such a partitioning scheme in the past they may have abonded it as useless.
-
-However, the swap space of the fulcrum partition can easily be increased from 1 to 32 elements to allow it to perform 16 unguarded comparisons at a time, which in turn also allows it to perform these comparisons in a branchless manner with no additional overhead.
+The swap space of the fulcrum partition can easily be increased from 1 to 32 elements to allow it to perform 16 boundless comparisons at a time, which in turn also allows it to perform these comparisons in a branchless manner with little additional overhead.
 
 Worst case handling
 -------------------
