@@ -135,7 +135,9 @@ Performance
 -----------
 Crumsort will begin to outperform fluxsort on random data right around 1,000,000 elements. Since it runs on 512 elements of auxiliary memory the sorting of ordered data will be slower than fluxsort for larger arrays.
 
-Because of the partitioning scheme crumsort is slower than pdqsort when sorting long doubles. Fixing this is on my todo list.
+Crumsort being unstable will scramble pre-existing patterns, making it less adaptive than fluxsort which will switch to quadsort when it detects ordered data during the partitioning phase.
+
+Because of the partitioning scheme crumsort is slower than pdqsort when sorting long doubles. Fixing this is on my todo list but it may not be feasible.
 
 Big O
 -----
