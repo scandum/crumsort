@@ -30,59 +30,94 @@
 #define CRUM_AUX 512
 #define CRUM_OUT  24
 
-size_t FUNC(crum_analyze)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
+void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, size_t nmemb, CMPFUNC *cmp);
+
+void FUNC(crum_analyze)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
-	char loop, dist;
-	size_t cnt, balance = 0, streaks = 0;
-	VAR *pta, *ptb, tmp;
+	char loop, asum, zsum;
+	size_t cnt, abalance = 0, zbalance = 0, astreaks = 0, zstreaks = 0;
+	VAR *pta, *ptz, tmp;
 
 	pta = array;
+	ptz = array + nmemb - 2;
 
-	for (cnt = nmemb ; cnt > 16 ; cnt -= 16)
+	for (cnt = nmemb ; cnt > 64 ; cnt -= 64)
 	{
-		for (dist = 0, loop = 16 ; loop ; loop--)
+		for (asum = zsum = 0, loop = 32 ; loop ; loop--)
 		{
-			dist += cmp(pta, pta + 1) > 0; pta++;
+			asum += cmp(pta, pta + 1) > 0; pta++;
+			zsum += cmp(ptz, ptz + 1) > 0; ptz--;
 		}
-		streaks += (dist == 0) | (dist == 16);
-		balance += dist;
+		astreaks += (asum == 0) | (asum == 32);
+		zstreaks += (zsum == 0) | (zsum == 32);
+		abalance += asum;
+		zbalance += zsum;
 	}
 
 	while (--cnt)
 	{
-		balance += cmp(pta, pta + 1) > 0;
-		pta++;
+		zbalance += cmp(ptz, ptz + 1) > 0; ptz--;
 	}
 
-	if (balance == 0)
+	if (abalance + zbalance == 0)
 	{
-		return 1;
+		return;
 	}
 
-	if (balance == nmemb - 1)
+	if (abalance + zbalance == nmemb - 1)
 	{
+		ptz = array + nmemb;
 		pta = array;
-		ptb = array + nmemb;
 
 		cnt = nmemb / 2;
 
 		do
 		{
-			tmp = *pta; *pta++ = *--ptb; *ptb = tmp;
+			tmp = *pta; *pta++ = *--ptz; *ptz = tmp;
 		}
 		while (--cnt);
 
-		return 1;
+		return;
 	}
 
-	if (streaks >= nmemb / 24)
-//	if (streaks >= nmemb / 32)
+	if (astreaks + zstreaks > nmemb / 40)
 	{
 		FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
-
-		return 1;
+		return;
 	}
-	return 0;
+
+	if (astreaks + zstreaks > nmemb / 80)
+	{
+		if (nmemb >= 512)
+		{
+			size_t block = pta - array;
+
+			if (astreaks < nmemb / 128)
+			{
+				FUNC(fulcrum_partition)(array, swap, NULL, swap_size, block, cmp);
+			}
+			else if (abalance)
+			{
+				FUNC(quadsort_swap)(array, swap, swap_size, block, cmp);
+			}
+
+			if (zstreaks < nmemb / 128)
+			{
+				FUNC(fulcrum_partition)(array + block, swap, NULL, swap_size, nmemb - block, cmp);
+			}
+			else if (zbalance)
+			{
+				FUNC(quadsort_swap)(array + block, swap, swap_size, nmemb - block, cmp);
+			}
+			FUNC(blit_merge_block)(array, swap, swap_size, block, nmemb - block, cmp);
+		}
+		else
+		{
+			FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
+		}
+		return;
+	}
+	FUNC(fulcrum_partition)(array, swap, NULL, swap_size, nmemb, cmp);
 }
 
 // The next 3 functions are used for pivot selection
@@ -131,88 +166,6 @@ VAR *FUNC(crum_median_of_nine)(VAR *array, size_t nmemb, CMPFUNC *cmp)
 	z = FUNC(crum_median_of_three)(array, div * 14, div * 12, div * 15, cmp);
 
 	return array + FUNC(crum_median_of_three)(array, x, y, z, cmp);
-}
-
-// As per suggestion by Marshall Lochbaum to improve generic data handling
-
-size_t FUNC(fulcrum_reverse_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
-{
-	size_t cnt, val, i, m = 0;
-	VAR *ptl, *ptr, *pta, *tpa;
-
-	if (nmemb <= swap_size)
-	{
-		cnt = nmemb / 8;
-
-		do for (i = 8 ; i ; i--)
-		{
-			val = cmp(piv, ptx) > 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
-		}
-		while (--cnt);
-
-		for (cnt = nmemb % 8 ; cnt ; cnt--)
-		{
-			val = cmp(piv, ptx) > 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
-		}
-		memcpy(array + m, swap - nmemb, (nmemb - m) * sizeof(VAR));
-
-		return m;
-	}
-
-	memcpy(swap, array, 16 * sizeof(VAR));
-	memcpy(swap + 16, array + nmemb - 16, 16 * sizeof(VAR));
-
-	ptl = array;
-	ptr = array + nmemb - 1;
-
-	pta = array + 16;
-	tpa = array + nmemb - 17;
-
-	cnt = nmemb / 16 - 2;
-
-	while (1)
-	{
-		if (pta - ptl - m <= 16)
-		{
-			if (cnt-- == 0) break;
-
-			for (i = 16 ; i ; i--)
-			{
-				val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
-			}
-		}
-		if (pta - ptl - m > 16)
-		{
-			if (cnt-- == 0) break;
-
-			for (i = 16 ; i ; i--)
-			{
-				val = cmp(piv, tpa) > 0; ptl[m] = ptr[m] = *tpa--; m += val; ptr--;
-			}
-		}
-	}
-
-	if (pta - ptl - m <= 16)
-	{
-		for (cnt = nmemb % 16 ; cnt ; cnt--)
-		{
-			val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
-		}
-	}
-	else
-	{
-		for (cnt = nmemb % 16 ; cnt ; cnt--)
-		{
-			val = cmp(piv, tpa) > 0; ptl[m] = ptr[m] = *tpa--; m += val; ptr--;
-		}
-	}
-	pta = swap;
-
-	for (cnt = 32 ; cnt ; cnt--)
-	{
-		val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
-	}
-	return m;
 }
 
 size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
@@ -295,6 +248,88 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 	return m;
 }
 
+// As per suggestion by Marshall Lochbaum to improve generic data handling, the original concept is from pdqsort
+
+size_t FUNC(fulcrum_reverse_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
+{
+	size_t cnt, val, i, m = 0;
+	VAR *ptl, *ptr, *pta, *tpa;
+
+	if (nmemb <= swap_size)
+	{
+		cnt = nmemb / 8;
+
+		do for (i = 8 ; i ; i--)
+		{
+			val = cmp(piv, ptx) > 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
+		}
+		while (--cnt);
+
+		for (cnt = nmemb % 8 ; cnt ; cnt--)
+		{
+			val = cmp(piv, ptx) > 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
+		}
+		memcpy(array + m, swap - nmemb, (nmemb - m) * sizeof(VAR));
+
+		return m;
+	}
+
+	memcpy(swap, array, 16 * sizeof(VAR));
+	memcpy(swap + 16, array + nmemb - 16, 16 * sizeof(VAR));
+
+	ptl = array;
+	ptr = array + nmemb - 1;
+
+	pta = array + 16;
+	tpa = array + nmemb - 17;
+
+	cnt = nmemb / 16 - 2;
+
+	while (1)
+	{
+		if (pta - ptl - m <= 16)
+		{
+			if (cnt-- == 0) break;
+
+			for (i = 16 ; i ; i--)
+			{
+				val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
+			}
+		}
+		if (pta - ptl - m > 16)
+		{
+			if (cnt-- == 0) break;
+
+			for (i = 16 ; i ; i--)
+			{
+				val = cmp(piv, tpa) > 0; ptl[m] = ptr[m] = *tpa--; m += val; ptr--;
+			}
+		}
+	}
+
+	if (pta - ptl - m <= 16)
+	{
+		for (cnt = nmemb % 16 ; cnt ; cnt--)
+		{
+			val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
+		}
+	}
+	else
+	{
+		for (cnt = nmemb % 16 ; cnt ; cnt--)
+		{
+			val = cmp(piv, tpa) > 0; ptl[m] = ptr[m] = *tpa--; m += val; ptr--;
+		}
+	}
+	pta = swap;
+
+	for (cnt = 32 ; cnt ; cnt--)
+	{
+		val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
+	}
+	return m;
+}
+
 void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
 	size_t a_size, s_size;
@@ -342,7 +377,9 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 				{
 					return FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
 				}
-				return FUNC(fulcrum_partition)(array, swap, max, swap_size, a_size, cmp);
+				max = NULL;
+				nmemb = a_size;
+				continue;
 			}
 			FUNC(quadsort_swap)(ptp + 1, swap, swap_size, s_size, cmp);
 		}
@@ -378,10 +415,7 @@ void FUNC(crumsort)(VAR *array, size_t nmemb, CMPFUNC *cmp)
 #endif
 	VAR swap[swap_size];
 
-	if (FUNC(crum_analyze)(array, swap, swap_size, nmemb, cmp) == 0)
-	{
-		FUNC(fulcrum_partition)(array, swap, NULL, swap_size, nmemb, cmp);
-	}
+	FUNC(crum_analyze)(array, swap, swap_size, nmemb, cmp);
 }
 
 void FUNC(crumsort_swap)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
@@ -390,8 +424,8 @@ void FUNC(crumsort_swap)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, 
 	{
 		FUNC(tail_swap)(array, nmemb, cmp);
 	}
-	else if (FUNC(crum_analyze)(array, swap, swap_size, nmemb, cmp) == 0)
+	else
 	{
-		FUNC(fulcrum_partition)(array, swap, NULL, swap_size, nmemb, cmp);
+		FUNC(crum_analyze)(array, swap, swap_size, nmemb, cmp);
 	}
 }
