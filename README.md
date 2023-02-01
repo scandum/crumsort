@@ -4,7 +4,7 @@ This document describes a hybrid quicksort / mergesort named crumsort. The sort 
 
 Analyzer
 --------
-Crumsort starts out with an analyzer that sorts fully in-order or reverse-order arrays using n comparisons. It also obtains a measure of presortedness and switches to [quadsort](https://github.com/scandum/quadsort) if the array is more than 66% ordered.
+Crumsort starts out with an analyzer that sorts fully in-order or reverse-order arrays using n comparisons. It also obtains a measure of presortedness for 4 segments of the array and switches to [quadsort](https://github.com/scandum/quadsort) if a segment is more than 50% ordered.
 
 Partitioning
 ------------
@@ -101,7 +101,7 @@ These optimizations do not work as well when the comparisons themselves are bran
 
 Generic data optimizations
 --------------------------
-Crumsort uses a method popularized by [pdqsort](https://github.com/orlp/pdqsort) to improve generic data handling. If the same pivot is chosen twice in a row it performs a reverse partition, filtering out all elements equal to the pivot, next it carries on as usual. This typically only occurs when sorting tables with many repeating values, like gender, education level, birthyear, zipcode, etc.
+Fluxsort uses a method similar to dual-pivot quicksort to improve generic data handling. If the same pivot is chosen twice in a row it performs a reverse partition, filtering out all elements equal to the pivot, next it carries on as usual. In addition, if after a partition all elements were smaller or equal to the pivot, a reverse partition is performed. This typically only occurs when sorting large tables with many identical values, like gender, age, etc. 
 
 Large array optimizations
 -------------------------
@@ -136,6 +136,8 @@ Crumsort will begin to outperform fluxsort on random data right around 1,000,000
 Crumsort being unstable will scramble pre-existing patterns, making it less adaptive than fluxsort which will switch to quadsort when it detects ordered data during the partitioning phase.
 
 Because of the partitioning scheme crumsort is slower than pdqsort when sorting long doubles. Fixing this is on my todo list but it may not be feasible.
+
+To take full advantage of branchless operations the cmp macro needs to be uncommented in bench.c, which will increase the performance by 100% on primitive types. The crumsort_prim() function can be used to access primitive comparisons directly.
 
 Big O
 -----
@@ -176,92 +178,99 @@ The source code was compiled using g++ -O3 -w -fpermissive bench.c. Each test wa
 ![fluxsort vs crumsort vs pdqsort](https://github.com/scandum/crumsort/blob/main/images/graph1.png)
 
 <details><summary>data table</summary>
-        
+
 |      Name |    Items | Type |     Best |  Average |  Compares | Samples |     Distribution |
 | --------- | -------- | ---- | -------- | -------- | --------- | ------- | ---------------- |
-|  fluxsort |   100000 |   64 | 0.001922 | 0.001952 |         1 |     100 |     random order |
-|  crumsort |   100000 |   64 | 0.001873 | 0.001946 |         1 |     100 |     random order |
-|   pdqsort |   100000 |   64 | 0.002653 | 0.002675 |         1 |     100 |     random order |
+|   pdqsort |   100000 |  128 | 0.005908 | 0.005975 |         0 |     100 |     random order |
+|  crumsort |   100000 |  128 | 0.008262 | 0.008316 |         0 |     100 |     random order |
+|  fluxsort |   100000 |  128 | 0.008567 | 0.008676 |         0 |     100 |     random order |
+
+|      Name |    Items | Type |     Best |  Average |  Compares | Samples |     Distribution |
+| --------- | -------- | ---- | -------- | -------- | --------- | ------- | ---------------- |
+|   pdqsort |   100000 |   64 | 0.002645 | 0.002668 |         0 |     100 |     random order |
+|  crumsort |   100000 |   64 | 0.001896 | 0.001927 |         0 |     100 |     random order |
+|  fluxsort |   100000 |   64 | 0.001942 | 0.001965 |         0 |     100 |     random order |
 
 |      Name |    Items | Type |     Best |  Average |     Loops | Samples |     Distribution |
 | --------- | -------- | ---- | -------- | -------- | --------- | ------- | ---------------- |
-|  fluxsort |   100000 |   32 | 0.001836 | 0.001855 |         1 |     100 |     random order |
-|  crumsort |   100000 |   32 | 0.001819 | 0.001870 |         1 |     100 |     random order |
-|   pdqsort |   100000 |   32 | 0.002674 | 0.002699 |         1 |     100 |     random order |
+|   pdqsort |   100000 |   32 | 0.002682 | 0.002705 |         0 |     100 |     random order |
+|  crumsort |   100000 |   32 | 0.001797 | 0.001812 |         0 |     100 |     random order |
+|  fluxsort |   100000 |   32 | 0.001834 | 0.001858 |         0 |     100 |     random order |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000675 | 0.000689 |         1 |     100 |     random % 100 |
-|  crumsort |   100000 |   32 | 0.000624 | 0.000689 |         1 |     100 |     random % 100 |
-|   pdqsort |   100000 |   32 | 0.000782 | 0.000788 |         1 |     100 |     random % 100 |
+|   pdqsort |   100000 |   32 | 0.000801 | 0.000807 |         0 |     100 |     random % 100 |
+|  crumsort |   100000 |   32 | 0.000560 | 0.000575 |         0 |     100 |     random % 100 |
+|  fluxsort |   100000 |   32 | 0.000657 | 0.000670 |         0 |     100 |     random % 100 |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000046 | 0.000047 |         1 |     100 |  ascending order |
-|  crumsort |   100000 |   32 | 0.000046 | 0.000046 |         1 |     100 |  ascending order |
-|   pdqsort |   100000 |   32 | 0.000091 | 0.000091 |         1 |     100 |  ascending order |
+|   pdqsort |   100000 |   32 | 0.000098 | 0.000099 |         0 |     100 |  ascending order |
+|  crumsort |   100000 |   32 | 0.000043 | 0.000046 |         0 |     100 |  ascending order |
+|  fluxsort |   100000 |   32 | 0.000044 | 0.000044 |         0 |     100 |  ascending order |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000812 | 0.000820 |         1 |     100 |    ascending saw |
-|  crumsort |   100000 |   32 | 0.000991 | 0.001000 |         1 |     100 |    ascending saw |
-|   pdqsort |   100000 |   32 | 0.003391 | 0.003416 |         1 |     100 |    ascending saw |
+|   pdqsort |   100000 |   32 | 0.003460 | 0.003483 |         0 |     100 |    ascending saw |
+|  crumsort |   100000 |   32 | 0.000628 | 0.000638 |         0 |     100 |    ascending saw |
+|  fluxsort |   100000 |   32 | 0.000328 | 0.000336 |         0 |     100 |    ascending saw |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000370 | 0.000377 |         1 |     100 |       pipe organ |
-|  crumsort |   100000 |   32 | 0.000481 | 0.000486 |         1 |     100 |       pipe organ |
-|   pdqsort |   100000 |   32 | 0.002824 | 0.002849 |         1 |     100 |       pipe organ |
+|   pdqsort |   100000 |   32 | 0.002828 | 0.002850 |         0 |     100 |       pipe organ |
+|  crumsort |   100000 |   32 | 0.000359 | 0.000363 |         0 |     100 |       pipe organ |
+|  fluxsort |   100000 |   32 | 0.000215 | 0.000219 |         0 |     100 |       pipe organ |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000057 | 0.000057 |         1 |     100 | descending order |
-|  crumsort |   100000 |   32 | 0.000057 | 0.000061 |         1 |     100 | descending order |
-|   pdqsort |   100000 |   32 | 0.000194 | 0.000198 |         1 |     100 | descending order |
+|   pdqsort |   100000 |   32 | 0.000201 | 0.000203 |         0 |     100 | descending order |
+|  crumsort |   100000 |   32 | 0.000055 | 0.000055 |         0 |     100 | descending order |
+|  fluxsort |   100000 |   32 | 0.000055 | 0.000056 |         0 |     100 | descending order |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000814 | 0.000830 |         1 |     100 |   descending saw |
-|  crumsort |   100000 |   32 | 0.000993 | 0.000998 |         1 |     100 |   descending saw |
-|   pdqsort |   100000 |   32 | 0.003367 | 0.003385 |         1 |     100 |   descending saw |
+|   pdqsort |   100000 |   32 | 0.003229 | 0.003260 |         0 |     100 |   descending saw |
+|  crumsort |   100000 |   32 | 0.000637 | 0.000645 |         0 |     100 |   descending saw |
+|  fluxsort |   100000 |   32 | 0.000328 | 0.000332 |         0 |     100 |   descending saw |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000930 | 0.000940 |         1 |     100 |      random tail |
-|  crumsort |   100000 |   32 | 0.001251 | 0.001258 |         1 |     100 |      random tail |
-|   pdqsort |   100000 |   32 | 0.002545 | 0.002558 |         1 |     100 |      random tail |
+|   pdqsort |   100000 |   32 | 0.002558 | 0.002579 |         0 |     100 |      random tail |
+|  crumsort |   100000 |   32 | 0.000879 | 0.000895 |         0 |     100 |      random tail |
+|  fluxsort |   100000 |   32 | 0.000626 | 0.000631 |         0 |     100 |      random tail |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.001627 | 0.001636 |         1 |     100 |      random half |
-|  crumsort |   100000 |   32 | 0.001869 | 0.001975 |         1 |     100 |      random half |
-|   pdqsort |   100000 |   32 | 0.002676 | 0.002720 |         1 |     100 |      random half |
+|   pdqsort |   100000 |   32 | 0.002660 | 0.002677 |         0 |     100 |      random half |
+|  crumsort |   100000 |   32 | 0.001200 | 0.001207 |         0 |     100 |      random half |
+|  fluxsort |   100000 |   32 | 0.001069 | 0.001084 |         0 |     100 |      random half |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.000334 | 0.000339 |         1 |     100 |  ascending tiles |
-|  crumsort |   100000 |   32 | 0.001292 | 0.001388 |         1 |     100 |  ascending tiles |
-|   pdqsort |   100000 |   32 | 0.002303 | 0.002344 |         1 |     100 |  ascending tiles |
+|   pdqsort |   100000 |   32 | 0.002310 | 0.002328 |         0 |     100 |  ascending tiles |
+|  crumsort |   100000 |   32 | 0.001520 | 0.001534 |         0 |     100 |  ascending tiles |
+|  fluxsort |   100000 |   32 | 0.000294 | 0.000298 |         0 |     100 |  ascending tiles |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.001664 | 0.001692 |         1 |     100 |     bit reversal |
-|  crumsort |   100000 |   32 | 0.001793 | 0.001859 |         1 |     100 |     bit reversal |
-|   pdqsort |   100000 |   32 | 0.002656 | 0.002683 |         1 |     100 |     bit reversal |
+|   pdqsort |   100000 |   32 | 0.002659 | 0.002681 |         0 |     100 |     bit reversal |
+|  crumsort |   100000 |   32 | 0.001787 | 0.001800 |         0 |     100 |     bit reversal |
+|  fluxsort |   100000 |   32 | 0.001696 | 0.001721 |         0 |     100 |     bit reversal |
+
 </details>
 
 ![fluxsort vs crumsort vs pdqsort](https://github.com/scandum/crumsort/blob/main/images/graph2.png)
 
 <details><summary>data table</summary>
 
-|      Name |    Items | Type |     Best |  Average |     Loops | Samples |     Distribution |
+|      Name |    Items | Type |     Best |  Average |  Compares | Samples |     Distribution |
 | --------- | -------- | ---- | -------- | -------- | --------- | ------- | ---------------- |
-|  fluxsort | 10000000 |   32 | 0.260900 | 0.267100 |         1 |     100 |  random 10000000 |
-|  crumsort | 10000000 |   32 | 0.237100 | 0.239200 |         1 |     100 |  random 10000000 |
-|   pdqsort | 10000000 |   32 | 0.337900 | 0.338700 |         1 |     100 |  random 10000000 |
+|   pdqsort |       10 |   32 | 0.087140 | 0.087436 |       0.0 |      10 |        random 10 |
+|  crumsort |       10 |   32 | 0.049921 | 0.050132 |       0.0 |      10 |        random 10 |
+|  fluxsort |       10 |   32 | 0.048499 | 0.048724 |       0.0 |      10 |        random 10 |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |  1000000 |   32 | 0.212900 | 0.214900 |        10 |     100 |   random 1000000 |
-|  crumsort |  1000000 |   32 | 0.208700 | 0.213500 |        10 |     100 |   random 1000000 |
-|   pdqsort |  1000000 |   32 | 0.302600 | 0.304600 |        10 |     100 |   random 1000000 |
+|   pdqsort |      100 |   32 | 0.169583 | 0.169940 |       0.0 |      10 |       random 100 |
+|  crumsort |      100 |   32 | 0.113443 | 0.113882 |       0.0 |      10 |       random 100 |
+|  fluxsort |      100 |   32 | 0.113426 | 0.113955 |       0.0 |      10 |       random 100 |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |   100000 |   32 | 0.183000 | 0.184400 |       100 |    1000 |    random 100000 |
-|  crumsort |   100000 |   32 | 0.180400 | 0.190400 |       100 |    1000 |    random 100000 |
-|   pdqsort |   100000 |   32 | 0.267200 | 0.269000 |       100 |    1000 |    random 100000 |
+|   pdqsort |     1000 |   32 | 0.207200 | 0.207858 |       0.0 |      10 |      random 1000 |
+|  crumsort |     1000 |   32 | 0.135912 | 0.136251 |       0.0 |      10 |      random 1000 |
+|  fluxsort |     1000 |   32 | 0.137019 | 0.138586 |       0.0 |      10 |      random 1000 |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |    10000 |   32 | 0.156300 | 0.157000 |      1000 |    1000 |     random 10000 |
-|  crumsort |    10000 |   32 | 0.158700 | 0.159300 |      1000 |    1000 |     random 10000 |
-|   pdqsort |    10000 |   32 | 0.236500 | 0.237800 |      1000 |    1000 |     random 10000 |
+|   pdqsort |    10000 |   32 | 0.238297 | 0.239006 |       0.0 |      10 |     random 10000 |
+|  crumsort |    10000 |   32 | 0.158249 | 0.158476 |       0.0 |      10 |     random 10000 |
+|  fluxsort |    10000 |   32 | 0.158445 | 0.158694 |       0.0 |      10 |     random 10000 |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |     1000 |   32 | 0.131400 | 0.132100 |     10000 |   10000 |      random 1000 |
-|  crumsort |     1000 |   32 | 0.128500 | 0.129200 |     10000 |   10000 |      random 1000 |
-|   pdqsort |     1000 |   32 | 0.204200 | 0.205900 |     10000 |   10000 |      random 1000 |
+|   pdqsort |   100000 |   32 | 0.270447 | 0.270855 |       0.0 |      10 |    random 100000 |
+|  crumsort |   100000 |   32 | 0.181770 | 0.183123 |       0.0 |      10 |    random 100000 |
+|  fluxsort |   100000 |   32 | 0.185907 | 0.186829 |       0.0 |      10 |    random 100000 |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |      100 |   32 | 0.105000 | 0.105400 |    100000 |    1000 |       random 100 |
-|  crumsort |      100 |   32 | 0.100100 | 0.100600 |    100000 |    1000 |       random 100 |
-|   pdqsort |      100 |   32 | 0.167300 | 0.168600 |    100000 |    1000 |       random 100 |
+|   pdqsort |  1000000 |   32 | 0.303525 | 0.305467 |       0.0 |      10 |   random 1000000 |
+|  crumsort |  1000000 |   32 | 0.206979 | 0.208153 |       0.0 |      10 |   random 1000000 |
+|  fluxsort |  1000000 |   32 | 0.215098 | 0.216294 |       0.0 |      10 |   random 1000000 |
 |           |          |      |          |          |           |         |                  |
-|  fluxsort |       10 |   32 | 0.044500 | 0.045200 |   1000000 |    1000 |        random 10 |
-|  crumsort |       10 |   32 | 0.046900 | 0.047600 |   1000000 |    1000 |        random 10 |
-|   pdqsort |       10 |   32 | 0.089700 | 0.091500 |   1000000 |    1000 |        random 10 |
+|   pdqsort | 10000000 |   32 | 0.338767 | 0.342580 |         0 |      10 |  random 10000000 |
+|  crumsort | 10000000 |   32 | 0.234268 | 0.234664 |         0 |      10 |  random 10000000 |
+|  fluxsort | 10000000 |   32 | 0.264988 | 0.267283 |         0 |      10 |  random 10000000 |
 
 </details>
