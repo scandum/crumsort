@@ -24,7 +24,7 @@
 */
 
 /*
-	crumsort 1.1.5.3
+	crumsort 1.1.5.4
 */
 
 #define CRUM_AUX 512
@@ -34,84 +34,212 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 
 void FUNC(crum_analyze)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
-	char loop, asum, zsum;
-	size_t cnt, abalance = 0, zbalance = 0, astreaks = 0, zstreaks = 0;
-	VAR *pta, *ptz, tmp;
+	unsigned char loop, asum, bsum, csum, dsum;
+	unsigned int astreaks, bstreaks, cstreaks, dstreaks;
+	size_t quad1, quad2, quad3, quad4, half1, half2;
+	size_t cnt, abalance, bbalance, cbalance, dbalance;
+	VAR *pta, *ptb, *ptc, *ptd;
+
+	half1 = nmemb / 2;
+	quad1 = half1 / 2;
+	quad2 = half1 - quad1;
+	half2 = nmemb - half1;
+	quad3 = half2 / 2;
+	quad4 = half2 - quad3;
 
 	pta = array;
-	ptz = array + nmemb - 2;
+	ptb = array + quad1;
+	ptc = array + half1;
+	ptd = array + half1 + quad3;
 
-	for (cnt = nmemb ; cnt > 64 ; cnt -= 64)
+	astreaks = bstreaks = cstreaks = dstreaks = 0;
+	abalance = bbalance = cbalance = dbalance = 0;
+
+	for (cnt = nmemb ; cnt > 132 ; cnt -= 128)
 	{
-		for (asum = zsum = 0, loop = 32 ; loop ; loop--)
+		for (asum = bsum = csum = dsum = 0, loop = 32 ; loop ; loop--)
 		{
 			asum += cmp(pta, pta + 1) > 0; pta++;
-			zsum += cmp(ptz, ptz + 1) > 0; ptz--;
+			bsum += cmp(ptb, ptb + 1) > 0; ptb++;
+			csum += cmp(ptc, ptc + 1) > 0; ptc++;
+			dsum += cmp(ptd, ptd + 1) > 0; ptd++;
 		}
-		astreaks += (asum == 0) | (asum == 32);
-		zstreaks += (zsum == 0) | (zsum == 32);
-		abalance += asum;
-		zbalance += zsum;
-	}
+		abalance += asum; astreaks += asum = (asum == 0) | (asum == 32);
+		bbalance += bsum; bstreaks += bsum = (bsum == 0) | (bsum == 32);
+		cbalance += csum; cstreaks += csum = (csum == 0) | (csum == 32);
+		dbalance += dsum; dstreaks += dsum = (dsum == 0) | (dsum == 32);
 
-	while (--cnt)
-	{
-		zbalance += cmp(ptz, ptz + 1) > 0; ptz--;
-	}
-
-	if (abalance + zbalance == 0)
-	{
-		return;
-	}
-
-	if (abalance + zbalance == nmemb - 1)
-	{
-		ptz = array + nmemb;
-		pta = array;
-
-		cnt = nmemb / 2;
-
-		do
+		if (cnt > 516 && asum + bsum + csum + dsum == 0)
 		{
-			tmp = *pta; *pta++ = *--ptz; *ptz = tmp;
+			abalance += 48; pta += 96;
+			bbalance += 48; ptb += 96;
+			cbalance += 48; ptc += 96;
+			dbalance += 48; ptd += 96;
+			cnt -= 384;
 		}
-		while (--cnt);
-
-		return;
 	}
 
-	if (astreaks + zstreaks > nmemb / 80)
+	for ( ; cnt > 7 ; cnt -= 4)
 	{
-		if (nmemb >= 512)
+		abalance += cmp(pta, pta + 1) > 0; pta++;
+		bbalance += cmp(ptb, ptb + 1) > 0; ptb++;
+		cbalance += cmp(ptc, ptc + 1) > 0; ptc++;
+		dbalance += cmp(ptd, ptd + 1) > 0; ptd++;
+	}
+
+	if (quad1 < quad2) {bbalance += cmp(ptb, ptb + 1) > 0; ptb++;}
+	if (quad1 < quad3) {cbalance += cmp(ptc, ptc + 1) > 0; ptc++;}
+	if (quad1 < quad4) {dbalance += cmp(ptd, ptd + 1) > 0; ptd++;}
+
+	cnt = abalance + bbalance + cbalance + dbalance;
+
+	if (cnt == 0)
+	{
+		if (cmp(pta, pta + 1) <= 0 && cmp(ptb, ptb + 1) <= 0 && cmp(ptc, ptc + 1) <= 0)
 		{
-			size_t block = pta - array;
+			return;
+		}
+	}
 
-			if (astreaks < nmemb / 128)
-			{
-				FUNC(fulcrum_partition)(array, swap, NULL, swap_size, block, cmp);
-			}
-			else if (abalance)
-			{
-				FUNC(quadsort_swap)(array, swap, swap_size, block, cmp);
-			}
+	asum = quad1 - abalance == 1;
+	bsum = quad2 - bbalance == 1;
+	csum = quad3 - cbalance == 1;
+	dsum = quad4 - dbalance == 1;
 
-			if (zstreaks < nmemb / 128)
+	if (asum | bsum | csum | dsum)
+	{
+		unsigned char span1 = (asum && bsum) * (cmp(pta, pta + 1) > 0);
+		unsigned char span2 = (bsum && csum) * (cmp(ptb, ptb + 1) > 0);
+		unsigned char span3 = (csum && dsum) * (cmp(ptc, ptc + 1) > 0);
+
+		switch (span1 | span2 * 2 | span3 * 4)
+		{
+			case 0: break;
+			case 1: FUNC(quad_reversal)(array, ptb);   abalance = bbalance = 0; break;
+			case 2: FUNC(quad_reversal)(pta + 1, ptc); bbalance = cbalance = 0; break;
+			case 3: FUNC(quad_reversal)(array, ptc);   abalance = bbalance = cbalance = 0; break;
+			case 4: FUNC(quad_reversal)(ptb + 1, ptd); cbalance = dbalance = 0; break;
+			case 5: FUNC(quad_reversal)(array, ptb);
+				FUNC(quad_reversal)(ptb + 1, ptd); abalance = bbalance = cbalance = dbalance = 0; break;
+			case 6: FUNC(quad_reversal)(pta + 1, ptd); bbalance = cbalance = dbalance = 0; break;
+			case 7: FUNC(quad_reversal)(array, ptd); return;
+		}
+
+		if (asum && abalance) {FUNC(quad_reversal)(array,   pta); abalance = 0;}
+		if (bsum && bbalance) {FUNC(quad_reversal)(pta + 1, ptb); bbalance = 0;}
+		if (csum && cbalance) {FUNC(quad_reversal)(ptb + 1, ptc); cbalance = 0;}
+		if (dsum && dbalance) {FUNC(quad_reversal)(ptc + 1, ptd); dbalance = 0;}
+	}
+
+#ifdef cmp
+	cnt = nmemb / 256; // switch to quadsort if at least 50% ordered
+#else
+	cnt = nmemb / 512; // switch to quadsort if at least 25% ordered
+#endif
+	asum = astreaks > cnt;
+	bsum = bstreaks > cnt;
+	csum = cstreaks > cnt;
+	dsum = dstreaks > cnt;
+
+#ifndef cmp
+	if (quad1 > QUAD_CACHE)
+	{
+		asum = bsum = csum = dsum = 1;
+	}
+#endif
+	switch (asum + bsum * 2 + csum * 4 + dsum * 8)
+	{
+		case 0:
+			FUNC(fulcrum_partition)(array, swap, NULL, swap_size, nmemb, cmp);
+			return;
+		case 1:
+			if (abalance) FUNC(quadsort_swap)(array, swap, swap_size, quad1, cmp);
+			FUNC(fulcrum_partition)(pta + 1, swap, NULL, swap_size, quad2 + half2, cmp);
+			break;
+		case 2:
+			FUNC(fulcrum_partition)(array, swap, NULL, swap_size, quad1, cmp);
+			if (bbalance) FUNC(quadsort_swap)(pta + 1, swap, swap_size, quad2, cmp);
+			FUNC(fulcrum_partition)(ptb + 1, swap, NULL, swap_size, half2, cmp);
+			break;
+		case 3:
+			if (abalance) FUNC(quadsort_swap)(array, swap, swap_size, quad1, cmp);
+			if (bbalance) FUNC(quadsort_swap)(pta + 1, swap, swap_size, quad2, cmp);
+			FUNC(fulcrum_partition)(ptb + 1, swap, NULL, swap_size, half2, cmp);
+			break;
+		case 4:
+			FUNC(fulcrum_partition)(array, swap, NULL, swap_size, half1, cmp);
+			if (cbalance) FUNC(quadsort_swap)(ptb + 1, swap, swap_size, quad3, cmp);
+			FUNC(fulcrum_partition)(ptc + 1, swap, NULL, swap_size, quad4, cmp);
+			break;
+		case 8:
+			FUNC(fulcrum_partition)(array, swap, NULL, swap_size, half1 + quad3, cmp);
+			if (dbalance) FUNC(quadsort_swap)(ptc + 1, swap, swap_size, quad4, cmp);
+			break;
+		case 9:
+			if (abalance) FUNC(quadsort_swap)(array, swap, swap_size, quad1, cmp);
+			FUNC(fulcrum_partition)(pta + 1, swap, NULL, swap_size, quad2 + quad3, cmp);
+			if (dbalance) FUNC(quadsort_swap)(ptc + 1, swap, swap_size, quad4, cmp);
+			break;
+		case 12:
+			FUNC(fulcrum_partition)(array, swap, NULL, swap_size, half1, cmp);
+			if (cbalance) FUNC(quadsort_swap)(ptb + 1, swap, swap_size, quad3, cmp);
+			if (dbalance) FUNC(quadsort_swap)(ptc + 1, swap, swap_size, quad4, cmp);
+			break;
+		case 5:
+		case 6:
+		case 7:
+		case 10:
+		case 11:
+		case 13:
+		case 14:
+		case 15:
+			if (asum)
 			{
-				FUNC(fulcrum_partition)(array + block, swap, NULL, swap_size, nmemb - block, cmp);
+				if (abalance) FUNC(quadsort_swap)(array, swap, swap_size, quad1, cmp);
 			}
-			else if (zbalance)
+			else FUNC(fulcrum_partition)(array, swap, NULL, swap_size, quad1, cmp);
+			if (bsum)
 			{
-				FUNC(quadsort_swap)(array + block, swap, swap_size, nmemb - block, cmp);
+				if (bbalance) FUNC(quadsort_swap)(pta + 1, swap, swap_size, quad2, cmp);
 			}
-			FUNC(blit_merge_block)(array, swap, swap_size, block, nmemb - block, cmp);
+			else FUNC(fulcrum_partition)(pta + 1, swap, NULL, swap_size, quad2, cmp);
+			if (csum)
+			{
+				if (cbalance) FUNC(quadsort_swap)(ptb + 1, swap, swap_size, quad3, cmp);
+			}
+			else FUNC(fulcrum_partition)(ptb + 1, swap, NULL, swap_size, quad3, cmp);
+			if (dsum)
+			{
+				if (dbalance) FUNC(quadsort_swap)(ptc + 1, swap, swap_size, quad4, cmp);
+			}
+			else FUNC(fulcrum_partition)(ptc + 1, swap, NULL, swap_size, quad4, cmp);
+			break;
+	}
+
+	if (cmp(pta, pta + 1) <= 0)
+	{
+		if (cmp(ptc, ptc + 1) <= 0)
+		{
+			if (cmp(ptb, ptb + 1) <= 0)
+			{
+				return;
+			}
 		}
 		else
 		{
-			FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
+			FUNC(blit_merge_block)(array + half1, swap, swap_size, quad3, quad4, cmp);
 		}
-		return;
 	}
-	FUNC(fulcrum_partition)(array, swap, NULL, swap_size, nmemb, cmp);
+	else
+	{
+		FUNC(blit_merge_block)(array, swap, swap_size, quad1, quad2, cmp);
+
+		if (cmp(ptc, ptc + 1) > 0)
+		{
+			FUNC(blit_merge_block)(array + half1, swap, swap_size, quad3, quad4, cmp);
+		}
+	}
+	FUNC(blit_merge_block)(array, swap, swap_size, half1, half2, cmp);
 }
 
 // The next 3 functions are used for pivot selection
@@ -121,7 +249,7 @@ VAR *FUNC(crum_median_of_sqrt)(VAR *array, VAR *swap, size_t swap_size, size_t n
 	VAR *pta, *piv;
 	size_t cnt, sqrt, div;
 
-	sqrt = nmemb < 65536 ? 16 : nmemb < 262144 ? 128 : 256;
+	sqrt = nmemb < 65536 ? 32 : nmemb < 262144 ? 128 : nmemb < 16777216 ? 256 : 512;
 
 	div = nmemb / sqrt;
 
@@ -160,6 +288,46 @@ VAR *FUNC(crum_median_of_nine)(VAR *array, size_t nmemb, CMPFUNC *cmp)
 	z = FUNC(crum_median_of_three)(array, div * 14, div * 12, div * 15, cmp);
 
 	return array + FUNC(crum_median_of_three)(array, x, y, z, cmp);
+}
+
+size_t FUNC(crum_median_of_five)(VAR *array, size_t v0, size_t v1, size_t v2, size_t v3, size_t v4, CMPFUNC *cmp)
+{
+	VAR *swap[6], **pta;
+	size_t x, y, z;
+
+	swap[2] = &array[v0];
+	swap[3] = &array[v1];
+	swap[4] = &array[v2];
+	swap[5] = &array[v3];
+
+	pta = swap + 2;
+
+	x = cmp(pta[0], pta[1]) > 0; y = !x; swap[0] = pta[y]; pta[0] = pta[x]; pta[1] = swap[0]; pta += 2;
+	x = cmp(pta[0], pta[1]) > 0; y = !x; swap[0] = pta[y]; pta[0] = pta[x]; pta[1] = swap[0]; pta -= 2;
+	x = cmp(pta[0], pta[2]) > 0; y = !x; swap[0] = pta[0]; swap[1] = pta[2]; pta[0] = swap[x]; pta[2] = swap[y]; pta++;
+	x = cmp(pta[0], pta[2]) > 0; y = !x; swap[0] = pta[0]; swap[1] = pta[2]; pta[0] = swap[x]; pta[2] = swap[y];
+
+	pta[2] = &array[v4];
+
+	x = cmp(pta[0], pta[1]) > 0;
+	y = cmp(pta[0], pta[2]) > 0;
+	z = cmp(pta[1], pta[2]) > 0;
+
+	return pta[(x == y) + (y ^ z)] - array;
+}
+
+VAR *FUNC(crum_median_of_twentyfive)(VAR *array, size_t nmemb, CMPFUNC *cmp)
+{
+	size_t swap[5];
+	size_t div = nmemb / 64;
+
+	swap[0] = FUNC(crum_median_of_five)(array, div *  4, div *  1, div *  2, div *  8, div * 10, cmp);
+	swap[1] = FUNC(crum_median_of_five)(array, div * 16, div * 12, div * 14, div * 18, div * 20, cmp);
+	swap[2] = FUNC(crum_median_of_five)(array, div * 32, div * 24, div * 30, div * 34, div * 38, cmp);
+	swap[3] = FUNC(crum_median_of_five)(array, div * 48, div * 42, div * 44, div * 50, div * 52, cmp);
+	swap[4] = FUNC(crum_median_of_five)(array, div * 60, div * 54, div * 56, div * 62, div * 63, cmp);
+
+	return array + FUNC(crum_median_of_five)(array, swap[0], swap[1], swap[2], swap[3], swap[4], cmp);
 }
 
 size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
@@ -242,7 +410,7 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 	return m;
 }
 
-// As per suggestion by Marshall Lochbaum to improve generic data handling, the original concept is from pdqsort
+// As per suggestion by Marshall Lochbaum to improve generic data handling by mimicking dual-pivot quicksort
 
 size_t FUNC(fulcrum_reverse_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
@@ -335,10 +503,15 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 		{
 			ptp = FUNC(crum_median_of_nine)(array, nmemb, cmp);
 		}
+		else if (nmemb <= 32768)
+		{
+			ptp = FUNC(crum_median_of_twentyfive)(array, nmemb, cmp);
+		}
 		else
 		{
 			ptp = FUNC(crum_median_of_sqrt)(array, swap, swap_size, nmemb, cmp);
 		}
+
 		piv = *ptp;
 
 		if (max && cmp(max, &piv) <= 0)
@@ -393,9 +566,9 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 
 void FUNC(crumsort)(VAR *array, size_t nmemb, CMPFUNC *cmp)
 {
-	if (nmemb < 32)
+	if (nmemb <= 132)
 	{
-		return FUNC(tail_swap)(array, nmemb, cmp);
+		return FUNC(quadsort)(array, nmemb, cmp);
 	}
 #if CRUM_AUX
 	size_t swap_size = CRUM_AUX;
@@ -414,9 +587,9 @@ void FUNC(crumsort)(VAR *array, size_t nmemb, CMPFUNC *cmp)
 
 void FUNC(crumsort_swap)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
-	if (nmemb < 32)
+	if (nmemb <= 132)
 	{
-		FUNC(tail_swap)(array, nmemb, cmp);
+		FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
 	}
 	else
 	{
