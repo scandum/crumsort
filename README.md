@@ -1,6 +1,6 @@
 Intro
 -----
-This document describes a hybrid quicksort / mergesort named crumsort. The sort is unstable, adaptive, branchless, and has exceptional performance.
+This document describes a hybrid quicksort / mergesort named crumsort. The sort is in-place, unstable, adaptive, branchless, and has exceptional performance.
 
 Analyzer
 --------
@@ -8,7 +8,11 @@ Crumsort starts out with an analyzer that sorts fully in-order or reverse-order 
 
 Partitioning
 ------------
-Partitioning is performed in a top-down manner similar to quicksort. Crumsort obtains the pseudomedian of 9 for partitions smaller than 2048 elements, and the median of 16 otherwise. The median element obtained will be referred to as the pivot. Partitions that grow smaller than 24 elements are sorted with quadsort.
+Partitioning is performed in a top-down manner similar to quicksort. Crumsort obtains the pseudomedian of 9 for partitions smaller than 2048 elements, and the median of 16 for paritions smaller than 65536. For larger partitions crumsort obtains the median of 128, 256, or 512 as an approximation of the cubic root of the partition size. While the square root is optimal in theory, the law of diminishing returns appears to apply to increasing the number of pivot candidates. Hardware limitations need to be factored in as well.
+
+For large partitions crumsort will swap 128-512 random elements to the start of the array, sort them with quadsort, and take the center right element. Using pseudomedian instead of median selection on large arrays is slower, likely due to cache pollution.
+
+The median element obtained will be referred to as the pivot. Partitions that grow smaller than 24 elements are sorted with quadsort.
 
 Fulcrum Partition
 -----------------
@@ -101,11 +105,7 @@ These optimizations do not work as well when the comparisons themselves are bran
 
 Generic data optimizations
 --------------------------
-Fluxsort uses a method similar to dual-pivot quicksort to improve generic data handling. If the same pivot is chosen twice in a row it performs a reverse partition, filtering out all elements equal to the pivot, next it carries on as usual. In addition, if after a partition all elements were smaller or equal to the pivot, a reverse partition is performed. This typically only occurs when sorting large tables with many identical values, like gender, age, etc. 
-
-Large array optimizations
--------------------------
-For partitions larger than 65536 elements crumsort obtains the median of 128 or 256. It does so by swapping 128 or 256 random elements to the start of the array, next sorting them with quadsort, and taking the center element. Using pseudomedian instead of median selection on large arrays is slower, likely due to cache pollution.
+Crumsort uses a method that mimicks dual-pivot quicksort to improve generic data handling. If after a partition all elements were smaller or equal to the pivot, a reverse partition is performed, filtering out all elements equal to the pivot, next it carries on as usual. This typically only occurs when sorting tables with many identical values, like gender, age, etc. Crumsort has a small bias in its pivot selection to increase the odds of this happening. In addition, generic data performance is improved slightly by checking if the same pivot is chosen twice in a row, in which case it performs a reverse partition as well. Pivot retention was first introduced by [pdqsort](https://github.com/orlp/pdqsort).
 
 Small array optimizations
 -------------------------
@@ -121,7 +121,7 @@ Crumsort uses the same interface as qsort, which is described in [man qsort](htt
 
 Porting
 -------
-People wanting to port crumsort might want to have a look at [fluxsort](https://github.com/scandum/fluxsort), which is a little bit simpler because it's stable and out of place.
+People wanting to port crumsort might want to have a look at [fluxsort](https://github.com/scandum/fluxsort), which is a little bit simpler because it's stable and out of place. There's also [piposort](https://github.com/scandum/piposort), a simplified implementation of quadsort.
 
 Memory
 ------
