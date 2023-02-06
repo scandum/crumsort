@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdalign.h>
+#include <float.h>
 
 typedef int CMPFUNC (const void *a, const void *b);
 
@@ -206,14 +207,16 @@ typedef int CMPFUNC (const void *a, const void *b);
 //└────────────────────────────────────────────────────┘//
 //////////////////////////////////////////////////////////
 
-// 128 reflects the name, though the actual size is 80, 96, or 128 bits,
-// depending on platform.
+// 128 reflects the name, though the actual size of a long double is 64, 80,
+// 96, or 128 bits, depending on platform.
 
-#define VAR long double
-#define FUNC(NAME) NAME##128
-#include "crumsort.c"
-#undef VAR
-#undef FUNC
+#if (DBL_MANT_DIG < LDBL_MANT_DIG)
+  #define VAR long double
+  #define FUNC(NAME) NAME##128
+    #include "crumsort.c"
+  #undef VAR
+  #undef FUNC
+#endif
 
 ///////////////////////////////////////////////////////////
 //┌─────────────────────────────────────────────────────┐//
@@ -237,16 +240,16 @@ typedef struct {char bytes[32];} struct256;
 #undef FUNC
 */
 
-///////////////////////////////////////////////////////////////////////////////
-//┌─────────────────────────────────────────────────────────────────────────┐//
-//│    ██████┐ ██┐   ██┐ █████┐ ██████┐ ███████┐ ██████┐ ██████┐ ████████┐  │//
-//│   ██┌───██┐██│   ██│██┌──██┐██┌──██┐██┌────┘██┌───██┐██┌──██┐└──██┌──┘  │//
-//│   ██│   ██│██│   ██│███████│██│  ██│███████┐██│   ██│██████┌┘   ██│     │//
-//│   ██│▄▄ ██│██│   ██│██┌──██│██│  ██│└────██│██│   ██│██┌──██┐   ██│     │//
-//│   └██████┌┘└██████┌┘██│  ██│██████┌┘███████│└██████┌┘██│  ██│   ██│     │//
-//│    └──▀▀─┘  └─────┘ └─┘  └─┘└─────┘ └──────┘ └─────┘ └─┘  └─┘   └─┘     │//
-//└─────────────────────────────────────────────────────────────────────────┘//
-///////////////////////////////////////////////////////////////////////////////
+ //////////////////////////////////////////////////////////////////////////
+//┌─────────────────────────────────────────────────────────────────────┐//
+//│ ██████┐██████┐ ██┐   ██┐███┐  ███┐███████┐ ██████┐ ██████┐ ████████┐│//
+//│██┌────┘██┌──██┐██│   ██│████┐████│██┌────┘██┌───██┐██┌──██┐└──██┌──┘│//
+//│██│     ██████┌┘██│   ██│██┌███┌██│███████┐██│   ██│██████┌┘   ██│   │//
+//│██│     ██┌──██┐██│   ██│██│└█┌┘██│└────██│██│   ██│██┌──██┐   ██│   │//
+//│└██████┐██│  ██│└██████┌┘██│ └┘ ██│███████│└██████┌┘██│  ██│   ██│   │//
+//│ └─────┘└─┘  └─┘ └─────┘ └─┘    └─┘└──────┘ └─────┘ └─┘  └─┘   └─┘   │//
+//└─────────────────────────────────────────────────────────────────────┘//
+//////////////////////////////////////////////////////////////////////////
 
 void crumsort(void *array, size_t nmemb, size_t size, CMPFUNC *cmp)
 {
@@ -272,17 +275,21 @@ void crumsort(void *array, size_t nmemb, size_t size, CMPFUNC *cmp)
 		case sizeof(long long):
 			crumsort64(array, nmemb, cmp);
 			return;
-
+#if (DBL_MANT_DIG < LDBL_MANT_DIG)
 		case sizeof(long double):
 			crumsort128(array, nmemb, cmp);
 			return;
-
+#endif
 //		case sizeof(struct256):
 //			crumsort256(array, nmemb, cmp);
 			return;
 
 		default:
+#if (DBL_MANT_DIG < LDBL_MANT_DIG)
 			assert(size == sizeof(char) || size == sizeof(short) || size == sizeof(int) || size == sizeof(long long) || size == sizeof(long double));
+#else
+			assert(size == sizeof(char) || size == sizeof(short) || size == sizeof(int) || size == sizeof(long long));
+#endif
 //			qsort(array, nmemb, size, cmp);
 	}
 }
