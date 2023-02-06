@@ -119,6 +119,8 @@ Interface
 ---------
 Crumsort uses the same interface as qsort, which is described in [man qsort](https://man7.org/linux/man-pages/man3/qsort.3p.html).
 
+Crumsort comes with the `crumsort_prim(void *array, size_t nmemb, size_t size)` function to perform primitive comparisons on arrays of 32 and 64 bit integers. Nmemb is the number of elements. Size should be either sizeof(int) or sizeof(long long) for signed integers, and sizeof(int) + 1 or sizeof(long long) + 1 for unsigned integers. Support for additional primitive as well as custom types can be added to fluxsort.h and quadsort.h.
+
 Porting
 -------
 People wanting to port crumsort might want to have a look at [fluxsort](https://github.com/scandum/fluxsort), which is a little bit simpler because it's stable and out of place. There's also [piposort](https://github.com/scandum/piposort), a simplified implementation of quadsort.
@@ -133,11 +135,11 @@ Performance
 -----------
 Crumsort will begin to outperform fluxsort on random data right around 1,000,000 elements. Since it runs on 512 elements of auxiliary memory the sorting of ordered data will be slower than fluxsort for larger arrays.
 
-Crumsort being unstable will scramble pre-existing patterns, making it less adaptive than fluxsort which will switch to quadsort when it detects ordered data during the partitioning phase.
+Crumsort being unstable will scramble pre-existing patterns, making it less adaptive than fluxsort, which will switch to quadsort when it detects the emergence of ordered data during the partitioning phase.
 
-Because of the partitioning scheme crumsort is slower than pdqsort when sorting long doubles. Fixing this is on my todo list but it may not be feasible.
+Because of the partitioning scheme crumsort is slower than pdqsort when sorting arrays of long doubles. Fixing this is on my todo list and I've devised a scheme to do so. The main focus of crumsort is the sorting of tables however, and crumsort will outperform pdqsort when long doubles are embedded within a table. In this case crumsort only has to move a 64 bit pointer, instead of a 128 bit float.
 
-To take full advantage of branchless operations the cmp macro needs to be uncommented in bench.c, which will increase the performance by 100% on primitive types. The crumsort_prim() function can be used to access primitive comparisons directly.
+To take full advantage of branchless operations the cmp macro needs to be uncommented in bench.c, which will increase the performance by 100% on primitive types. The crumsort_prim() function can be used to access primitive comparisons directly. In the case of 64 bit integers crumsort will outperform all radix sorts I've tested so far. Radix sorts still hold an advantage for 32 bit integers on arrays under 1 million elements.
 
 Big O
 -----
