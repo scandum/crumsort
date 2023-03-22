@@ -262,7 +262,7 @@ VAR *FUNC(crum_median_of_cbrt)(VAR *array, VAR *swap, size_t swap_size, size_t n
 
 	div = nmemb / cbrt;
 
-	pta = array + nmemb - 1;
+	pta = array + nmemb - 1 - (size_t) &div / 64 % div;
 	piv = array + cbrt;
 
 	for (cnt = cbrt ; cnt ; cnt--)
@@ -533,12 +533,13 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 	}
 }
 
-void FUNC(crumsort)(VAR *array, size_t nmemb, CMPFUNC *cmp)
+void FUNC(crumsort)(void *array, size_t nmemb, CMPFUNC *cmp)
 {
 	if (nmemb <= 132)
 	{
 		return FUNC(quadsort)(array, nmemb, cmp);
 	}
+	VAR *pta = (VAR *) array;
 #if CRUM_AUX
 	size_t swap_size = CRUM_AUX;
 #else
@@ -551,10 +552,10 @@ void FUNC(crumsort)(VAR *array, size_t nmemb, CMPFUNC *cmp)
 #endif
 	VAR swap[swap_size];
 
-	FUNC(crum_analyze)(array, swap, swap_size, nmemb, cmp);
+	FUNC(crum_analyze)(pta, swap, swap_size, nmemb, cmp);
 }
 
-void FUNC(crumsort_swap)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
+void FUNC(crumsort_swap)(void *array, void *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
 	if (nmemb <= 132)
 	{
@@ -562,6 +563,9 @@ void FUNC(crumsort_swap)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, 
 	}
 	else
 	{
-		FUNC(crum_analyze)(array, swap, swap_size, nmemb, cmp);
+		VAR *pta = (VAR *) array;
+		VAR *pts = (VAR *) swap;
+
+		FUNC(crum_analyze)(pta, pts, swap_size, nmemb, cmp);
 	}
 }
