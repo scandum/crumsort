@@ -159,6 +159,12 @@ Big O
 └───────────────┘└───────┴───────┴───────┘└───────┴───────┴───────┘└──────┘└─────────┘└─────────┘
 ```
 
+Variants
+--------
+- [crumsort-rs](https://github.com/google/crumsort-rs) is a parallelized Rust port of crumsort with a focus on random data.
+
+- [distcrum](https://github.com/mlochbaum/distcrum) is a crumsort / [rhsort](https://github.com/mlochbaum/rhsort) hybrid.
+
 Visualization
 -------------
 In the visualization below two tests are performed on 512 elements.
