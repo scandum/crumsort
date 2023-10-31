@@ -1,31 +1,4 @@
-/*
-	Copyright (C) 2014-2022 Igor van den Hoven ivdhoven@gmail.com
-*/
-
-/*
-	Permission is hereby granted, free of charge, to any person obtaining
-	a copy of this software and associated documentation files (the
-	"Software"), to deal in the Software without restriction, including
-	without limitation the rights to use, copy, modify, merge, publish,
-	distribute, sublicense, and/or sell copies of the Software, and to
-	permit persons to whom the Software is furnished to do so, subject to
-	the following conditions:
-
-	The above copyright notice and this permission notice shall be
-	included in all copies or substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-	MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-	IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-	SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-/*
-	crumsort 1.2.1.2
-*/
+// crumsort 1.2.1.2 - Igor van den Hoven ivdhoven@gmail.com
 
 #define CRUM_AUX 512
 #define CRUM_OUT  96
@@ -227,19 +200,19 @@ void FUNC(crum_analyze)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, C
 		}
 		else
 		{
-			FUNC(blit_merge_block)(array + half1, swap, swap_size, quad3, quad4, cmp);
+			FUNC(rotate_merge_block)(array + half1, swap, swap_size, quad3, quad4, cmp);
 		}
 	}
 	else
 	{
-		FUNC(blit_merge_block)(array, swap, swap_size, quad1, quad2, cmp);
+		FUNC(rotate_merge_block)(array, swap, swap_size, quad1, quad2, cmp);
 
 		if (cmp(ptc, ptc + 1) > 0)
 		{
-			FUNC(blit_merge_block)(array + half1, swap, swap_size, quad3, quad4, cmp);
+			FUNC(rotate_merge_block)(array + half1, swap, swap_size, quad3, quad4, cmp);
 		}
 	}
-	FUNC(blit_merge_block)(array, swap, swap_size, half1, half2, cmp);
+	FUNC(rotate_merge_block)(array, swap, swap_size, half1, half2, cmp);
 }
 
 // The next 4 functions are used for pivot selection
@@ -253,7 +226,7 @@ VAR *FUNC(crum_binary_median)(VAR *pta, VAR *ptb, size_t len, CMPFUNC *cmp)
 	return cmp(pta, ptb) > 0 ? pta : ptb;
 }
 
-VAR *FUNC(crum_median_of_cbrt)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
+VAR *FUNC(crum_median_of_cbrt)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, int *generic, CMPFUNC *cmp)
 {
 	VAR *pta, *piv;
 	size_t cnt, cbrt, div;
@@ -276,6 +249,8 @@ VAR *FUNC(crum_median_of_cbrt)(VAR *array, VAR *swap, size_t swap_size, size_t n
 
 	FUNC(quadsort_swap)(piv, swap, swap_size, cbrt, cmp);
 	FUNC(quadsort_swap)(piv + cbrt, swap, swap_size, cbrt, cmp);
+
+	*generic = cmp(piv + cbrt * 2 - 1, piv) <= 0;
 
 	return FUNC(crum_binary_median)(piv, piv + cbrt, cbrt, cmp);
 }
@@ -311,7 +286,7 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 	if (nmemb <= swap_size)
 	{
 		cnt = nmemb / 8;
-
+#if !defined __clang__
 		do for (i = 8 ; i ; i--)
 		{
 			val = cmp(ptx, piv) <= 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
@@ -322,7 +297,23 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 		{
 			val = cmp(ptx, piv) <= 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
 		}
-		memcpy(array + m, swap - nmemb, sizeof(VAR) * (nmemb - m));
+		swap -= nmemb;
+#else
+		VAR *tmp, *pta = array, *pts = swap;
+
+		do for (i = 8 ; i ; i--)
+		{
+			tmp = cmp(ptx, piv) <= 0 ? pta++ : pts++; *tmp = *ptx++;
+		}
+		while (--cnt);
+
+		for (cnt = nmemb % 8 ; cnt ; cnt--)
+		{
+			tmp = cmp(ptx, piv) <= 0 ? pta++ : pts++; *tmp = *ptx++;
+		}
+		m = pta - array;
+#endif
+		memcpy(array + m, swap, sizeof(VAR) * (nmemb - m));
 
 		return m;
 	}
@@ -469,6 +460,7 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 {
 	size_t a_size, s_size;
 	VAR *ptp, piv;
+	int generic = 0;
 
 	while (1)
 	{
@@ -478,7 +470,13 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 		}
 		else
 		{
-			ptp = FUNC(crum_median_of_cbrt)(array, swap, swap_size, nmemb, cmp);
+			ptp = FUNC(crum_median_of_cbrt)(array, swap, swap_size, nmemb, &generic, cmp);
+
+			if (generic)
+			{
+				FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
+				return;
+			}
 		}
 
 		piv = *ptp;
@@ -490,7 +488,8 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 
 			if (s_size <= a_size / 16 || a_size <= CRUM_OUT)
 			{
-				return FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
+				FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
+				return;
 			}
 			nmemb = a_size; max = NULL;
 			continue;
@@ -504,19 +503,6 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 
 		if (a_size <= s_size / 16 || s_size <= CRUM_OUT)
 		{
-			if (s_size == 0)
-			{
-				a_size = FUNC(fulcrum_reverse_partition)(array, swap, array, &piv, swap_size, a_size, cmp);
-				s_size = nmemb - a_size;
-
-				if (s_size <= a_size / 16 || a_size <= CRUM_OUT)
-				{
-					return FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
-				}
-				max = NULL;
-				nmemb = a_size;
-				continue;
-			}
 			FUNC(quadsort_swap)(ptp + 1, swap, swap_size, s_size, cmp);
 		}
 		else
@@ -524,9 +510,24 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 			FUNC(fulcrum_partition)(ptp + 1, swap, max, swap_size, s_size, cmp);
 		}
 
-		if (s_size <= a_size / 32 || a_size <= CRUM_OUT)
+		if (s_size <= a_size / 16 || a_size <= CRUM_OUT)
 		{
-			return FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
+			if (a_size <= CRUM_OUT)
+			{
+				FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
+				return;
+			}
+			a_size = FUNC(fulcrum_reverse_partition)(array, swap, array, &piv, swap_size, a_size, cmp);
+			s_size = nmemb - a_size;
+
+			if (s_size <= a_size / 16 || a_size <= CRUM_OUT)
+			{
+				FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
+				return;
+			}
+			max = NULL;
+			nmemb = a_size;
+			continue;
 		}
 		max = ptp;
 		nmemb = a_size;

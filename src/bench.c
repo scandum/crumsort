@@ -1,29 +1,4 @@
 /*
-	Copyright (C) 2014-2023 Igor van den Hoven ivdhoven@gmail.com
-*/
-
-/*
-	Permission is hereby granted, free of charge, to any person obtaining
-	a copy of this software and associated documentation files (the
-	"Software"), to deal in the Software without restriction, including
-	without limitation the rights to use, copy, modify, merge, publish,
-	distribute, sublicense, and/or sell copies of the Software, and to
-	permit persons to whom the Software is furnished to do so, subject to
-	the following conditions:
-
-	The above copyright notice and this permission notice shall be
-	included in all copies or substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-	MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-	IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-	SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-/*
 	To compile use either:
 
 	gcc -O3 bench.c
@@ -343,6 +318,8 @@ void test_sort(void *array, void *unsorted, void *valid, int minimum, int maximu
 #endif
 #ifdef FLUXSORT_H
 				case 'f' + 'l' * 32 + 'u' * 1024: fluxsort(array, max, size, cmpf); break;
+				case 's' + '_' * 32 + 'f' * 1024: fluxsort_size(array, max, size, cmpf); break;
+
 #endif
 #ifdef GRIDSORT_H
 				case 'g' + 'r' * 32 + 'i' * 1024: gridsort(array, max, size, cmpf); break;
@@ -355,6 +332,7 @@ void test_sort(void *array, void *unsorted, void *valid, int minimum, int maximu
 #endif
 #ifdef QUADSORT_H
 				case 'q' + 'u' * 32 + 'a' * 1024: quadsort(array, max, size, cmpf); break;
+				case 's' + '_' * 32 + 'q' * 1024: quadsort_size(array, max, size, cmpf); break;
 #endif
 #ifdef SKIPSORT_H
 				case 's' + 'k' * 32 + 'i' * 1024: skipsort(array, max, size, cmpf); break;
@@ -473,7 +451,7 @@ void test_sort(void *array, void *unsorted, void *valid, int minimum, int maximu
 				break;
 			}
 		}
-		else if (cmpf == cmp_long_double_ptr)
+		else if (size == sizeof(int *) && cmpf == cmp_long_double_ptr)
 		{
 			long double **pptda = (long double **) array;
 
@@ -930,6 +908,7 @@ int main(int argc, char **argv)
 		}
 		run_test(la_array, lr_array, lv_array, max, max, samples, repetitions, 0, "random long", sizeof(long long *), cmp_long_ptr);
 
+
 		free(la_array);
 		free(lr_array);
 		free(lv_array);
@@ -1003,7 +982,11 @@ int main(int argc, char **argv)
 	{
 		test_sort(da_array, dr_array, dv_array, max, max, samples, repetitions, qsort, sorts[cnt], "random order", sizeof(long double), cmp_long_double);
 	}
-
+#ifndef cmp
+#ifdef QUADSORT_H
+	test_sort(da_array, dr_array, dv_array, max, max, samples, repetitions, qsort, "s_quadsort", "random order", sizeof(long double), cmp_long_double_ptr);
+#endif
+#endif
 	free(da_array);
 	free(dr_array);
 	free(dv_array);

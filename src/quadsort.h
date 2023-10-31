@@ -1,31 +1,4 @@
-/*
-	Copyright (C) 2014-2022 Igor van den Hoven ivdhoven@gmail.com
-*/
-
-/*
-	Permission is hereby granted, free of charge, to any person obtaining
-	a copy of this software and associated documentation files (the
-	"Software"), to deal in the Software without restriction, including
-	without limitation the rights to use, copy, modify, merge, publish,
-	distribute, sublicense, and/or sell copies of the Software, and to
-	permit persons to whom the Software is furnished to do so, subject to
-	the following conditions:
-
-	The above copyright notice and this permission notice shall be
-	included in all copies or substantial portions of the Software.
-
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-	EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-	MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-	IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-	CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-	TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-	SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-/*
-	quadsort 1.2.1.2
-*/
+// quadsort 1.2.1.2 - Igor van den Hoven ivdhoven@gmail.com
 
 #ifndef QUADSORT_H
 #define QUADSORT_H
@@ -76,12 +49,12 @@ typedef int CMPFUNC (const void *a, const void *b);
 #endif
 
 #if !defined __clang__
-#define tail_branchless_merge(tpd, x, tpl, tpr, cmp)  \
+#define tail_branchless_merge(tpd, y, tpl, tpr, cmp)  \
 	y = cmp(tpl, tpr) <= 0;  \
 	*tpd = *tpl;  \
-	tpl -= !x;  \
+	tpl -= !y;  \
 	tpd--;  \
-	tpd[x] = *tpr;  \
+	tpd[y] = *tpr;  \
 	tpr -= y;
 #else
 #define tail_branchless_merge(tpd, x, tpl, tpr, cmp)  \
@@ -308,6 +281,7 @@ typedef struct {char bytes[32];} struct256;
 //└─────────────────────────────────────────────────────────────────────────┘//
 ///////////////////////////////////////////////////////////////////////////////
 
+
 void quadsort(void *array, size_t nmemb, size_t size, CMPFUNC *cmp)
 {
 	if (nmemb < 2)
@@ -390,6 +364,49 @@ void quadsort_prim(void *array, size_t nmemb, size_t size)
 			assert(size == sizeof(int) || size == sizeof(int) + 1 || size == sizeof(long long) || size == sizeof(long long) + 1);
 			return;
 	}
+}
+
+// Sort arrays of structures, the comparison function must be by reference.
+
+void quadsort_size(void *array, size_t nmemb, size_t size, CMPFUNC *cmp)
+{
+	char **pti, *pta, *pts;
+	size_t index, offset;
+
+	pta = (char *) array;
+	pti = (char **) malloc(nmemb * sizeof(char *));
+
+	assert(pti != NULL);
+
+	for (index = offset = 0 ; index < nmemb ; index++)
+	{
+		pti[index] = pta + offset;
+
+		offset += size;
+	}
+
+	switch (sizeof(size_t))
+	{
+		case 4: quadsort32(pti, nmemb, cmp); break;
+		case 8: quadsort64(pti, nmemb, cmp); break;
+	}
+
+	pts = (char *) malloc(nmemb * size);
+
+	assert(pts != NULL);
+	
+	for (index = 0 ; index < nmemb ; index++)
+	{
+		memcpy(pts, pti[index], size);
+
+		pts += size;
+	}
+	pts -= nmemb * size;
+
+	memcpy(array, pts, nmemb * size);
+
+	free(pti);
+	free(pts);
 }
 
 #undef QUAD_CACHE
