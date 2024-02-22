@@ -1,4 +1,4 @@
-// crumsort 1.2.1.2 - Igor van den Hoven ivdhoven@gmail.com
+// crumsort 1.2.1.3 - Igor van den Hoven ivdhoven@gmail.com
 
 #ifndef CRUMSORT_H
 #define CRUMSORT_H
@@ -30,7 +30,7 @@ typedef int CMPFUNC (const void *a, const void *b);
   #define QUAD_CACHE 4294967295
 #else
 //#define QUAD_CACHE 131072
-  #define QUAD_CACHE 262144
+#define QUAD_CACHE 262144
 //#define QUAD_CACHE 524288
 //#define QUAD_CACHE 4294967295
 #endif

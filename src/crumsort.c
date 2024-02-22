@@ -1,7 +1,7 @@
-// crumsort 1.2.1.2 - Igor van den Hoven ivdhoven@gmail.com
+// crumsort 1.2.1.3 - Igor van den Hoven ivdhoven@gmail.com
 
-#define CRUM_AUX 512
-#define CRUM_OUT  96
+#define CRUM_AUX  512
+#define CRUM_OUT   96
 
 void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, size_t nmemb, CMPFUNC *cmp);
 
@@ -117,9 +117,11 @@ void FUNC(crum_analyze)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, C
 #ifndef cmp
 	if (quad1 > QUAD_CACHE)
 	{
-		asum = bsum = csum = dsum = 1;
+//		asum = bsum = csum = dsum = 1;
+		goto quad_cache;
 	}
 #endif
+
 	switch (asum + bsum * 2 + csum * 4 + dsum * 8)
 	{
 		case 0:
@@ -166,6 +168,9 @@ void FUNC(crum_analyze)(VAR *array, VAR *swap, size_t swap_size, size_t nmemb, C
 		case 13:
 		case 14:
 		case 15:
+#ifndef cmp
+		quad_cache:
+#endif
 			if (asum)
 			{
 				if (abalance) FUNC(quadsort_swap)(array, swap, swap_size, quad1, cmp);
@@ -231,7 +236,7 @@ VAR *FUNC(crum_median_of_cbrt)(VAR *array, VAR *swap, size_t swap_size, size_t n
 	VAR *pta, *piv;
 	size_t cnt, cbrt, div;
 
-	cbrt = nmemb < 32768 ? 32 : nmemb < 262144 ? 64 : nmemb < 2097152 ? 128 : nmemb < 16777216 ? 256 : 512;
+	for (cbrt = 32 ; nmemb > cbrt * cbrt * cbrt && cbrt < swap_size ; cbrt *= 2) {}
 
 	div = nmemb / cbrt;
 
@@ -250,7 +255,7 @@ VAR *FUNC(crum_median_of_cbrt)(VAR *array, VAR *swap, size_t swap_size, size_t n
 	FUNC(quadsort_swap)(piv, swap, swap_size, cbrt, cmp);
 	FUNC(quadsort_swap)(piv + cbrt, swap, swap_size, cbrt, cmp);
 
-	*generic = cmp(piv + cbrt * 2 - 1, piv) <= 0;
+	*generic = (cmp(piv + cbrt * 2 - 1, piv) <= 0) & (cmp(piv + cbrt - 1, piv) <= 0);
 
 	return FUNC(crum_binary_median)(piv, piv + cbrt, cbrt, cmp);
 }
@@ -280,58 +285,23 @@ VAR *FUNC(crum_median_of_nine)(VAR *array, size_t nmemb, CMPFUNC *cmp)
 
 size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
-	size_t cnt, val, i, m = 0;
+	size_t i, cnt, val, m = 0;
 	VAR *ptl, *ptr, *pta, *tpa;
 
-	if (nmemb <= swap_size)
-	{
-		cnt = nmemb / 8;
-#if !defined __clang__
-		do for (i = 8 ; i ; i--)
-		{
-			val = cmp(ptx, piv) <= 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
-		}
-		while (--cnt);
-
-		for (cnt = nmemb % 8 ; cnt ; cnt--)
-		{
-			val = cmp(ptx, piv) <= 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
-		}
-		swap -= nmemb;
-#else
-		VAR *tmp, *pta = array, *pts = swap;
-
-		do for (i = 8 ; i ; i--)
-		{
-			tmp = cmp(ptx, piv) <= 0 ? pta++ : pts++; *tmp = *ptx++;
-		}
-		while (--cnt);
-
-		for (cnt = nmemb % 8 ; cnt ; cnt--)
-		{
-			tmp = cmp(ptx, piv) <= 0 ? pta++ : pts++; *tmp = *ptx++;
-		}
-		m = pta - array;
-#endif
-		memcpy(array + m, swap, sizeof(VAR) * (nmemb - m));
-
-		return m;
-	}
-
-	memcpy(swap, array, 16 * sizeof(VAR));
-	memcpy(swap + 16, array + nmemb - 16, 16 * sizeof(VAR));
+	memcpy(swap, array, 32 * sizeof(VAR));
+	memcpy(swap + 32, array + nmemb - 32, 32 * sizeof(VAR));
 
 	ptl = array;
 	ptr = array + nmemb - 1;
 
-	pta = array + 16;
-	tpa = array + nmemb - 17;
+	pta = array + 32;
+	tpa = array + nmemb - 33;
 
-	cnt = nmemb / 16 - 2;
+	cnt = nmemb / 16 - 4;
 
 	while (1)
 	{
-		if (pta - ptl - m <= 16)
+		if (pta - ptl - m <= 48)
 		{
 			if (cnt-- == 0) break;
 
@@ -340,7 +310,7 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 				val = cmp(pta, piv) <= 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
 			}
 		}
-		if (pta - ptl - m > 16)
+		if (pta - ptl - m >= 16)
 		{
 			if (cnt-- == 0) break;
 
@@ -351,7 +321,7 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 		}
 	}
 
-	if (pta - ptl - m <= 16)
+	if (pta - ptl - m <= 48)
 	{
 		for (cnt = nmemb % 16 ; cnt ; cnt--)
 		{
@@ -367,8 +337,11 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 	}
 	pta = swap;
 
-	for (cnt = 32 ; cnt ; cnt--)
+	for (cnt = 16 ; cnt ; cnt--)
 	{
+		val = cmp(pta, piv) <= 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
+		val = cmp(pta, piv) <= 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
+		val = cmp(pta, piv) <= 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
 		val = cmp(pta, piv) <= 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
 	}
 	return m;
@@ -378,42 +351,23 @@ size_t FUNC(fulcrum_default_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 
 size_t FUNC(fulcrum_reverse_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
-	size_t cnt, val, i, m = 0;
+	size_t i, cnt, val, m = 0;
 	VAR *ptl, *ptr, *pta, *tpa;
 
-	if (nmemb <= swap_size)
-	{
-		cnt = nmemb / 8;
-
-		do for (i = 8 ; i ; i--)
-		{
-			val = cmp(piv, ptx) > 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
-		}
-		while (--cnt);
-
-		for (cnt = nmemb % 8 ; cnt ; cnt--)
-		{
-			val = cmp(piv, ptx) > 0; swap[-m] = array[m] = *ptx++; m += val; swap++;
-		}
-		memcpy(array + m, swap - nmemb, (nmemb - m) * sizeof(VAR));
-
-		return m;
-	}
-
-	memcpy(swap, array, 16 * sizeof(VAR));
-	memcpy(swap + 16, array + nmemb - 16, 16 * sizeof(VAR));
+	memcpy(swap, array, 32 * sizeof(VAR));
+	memcpy(swap + 32, array + nmemb - 32, 32 * sizeof(VAR));
 
 	ptl = array;
 	ptr = array + nmemb - 1;
 
-	pta = array + 16;
-	tpa = array + nmemb - 17;
+	pta = array + 32;
+	tpa = array + nmemb - 33;
 
-	cnt = nmemb / 16 - 2;
+	cnt = nmemb / 16 - 4;
 
 	while (1)
 	{
-		if (pta - ptl - m <= 16)
+		if (pta - ptl - m <= 48)
 		{
 			if (cnt-- == 0) break;
 
@@ -422,7 +376,7 @@ size_t FUNC(fulcrum_reverse_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 				val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
 			}
 		}
-		if (pta - ptl - m > 16)
+		if (pta - ptl - m >= 16)
 		{
 			if (cnt-- == 0) break;
 
@@ -433,7 +387,7 @@ size_t FUNC(fulcrum_reverse_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 		}
 	}
 
-	if (pta - ptl - m <= 16)
+	if (pta - ptl - m <= 48)
 	{
 		for (cnt = nmemb % 16 ; cnt ; cnt--)
 		{
@@ -449,8 +403,11 @@ size_t FUNC(fulcrum_reverse_partition)(VAR *array, VAR *swap, VAR *ptx, VAR *piv
 	}
 	pta = swap;
 
-	for (cnt = 32 ; cnt ; cnt--)
+	for (cnt = 16 ; cnt ; cnt--)
 	{
+		val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
+		val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
+		val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
 		val = cmp(piv, pta) > 0; ptl[m] = ptr[m] = *pta++; m += val; ptr--;
 	}
 	return m;
@@ -472,26 +429,19 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 		{
 			ptp = FUNC(crum_median_of_cbrt)(array, swap, swap_size, nmemb, &generic, cmp);
 
-			if (generic)
-			{
-				FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
-				return;
-			}
+			if (generic) break;
 		}
-
 		piv = *ptp;
 
 		if (max && cmp(max, &piv) <= 0)
 		{
 			a_size = FUNC(fulcrum_reverse_partition)(array, swap, array, &piv, swap_size, nmemb, cmp);
 			s_size = nmemb - a_size;
+			nmemb = a_size;
 
-			if (s_size <= a_size / 16 || a_size <= CRUM_OUT)
-			{
-				FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
-				return;
-			}
-			nmemb = a_size; max = NULL;
+			if (s_size <= a_size / 32 || a_size <= CRUM_OUT) break;
+
+			max = NULL;
 			continue;
 		}
 		*ptp = array[--nmemb];
@@ -501,7 +451,7 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 
 		ptp = array + a_size; array[nmemb] = *ptp; *ptp = piv;
 
-		if (a_size <= s_size / 16 || s_size <= CRUM_OUT)
+		if (a_size <= s_size / 32 || s_size <= CRUM_OUT)
 		{
 			FUNC(quadsort_swap)(ptp + 1, swap, swap_size, s_size, cmp);
 		}
@@ -509,36 +459,35 @@ void FUNC(fulcrum_partition)(VAR *array, VAR *swap, VAR *max, size_t swap_size, 
 		{
 			FUNC(fulcrum_partition)(ptp + 1, swap, max, swap_size, s_size, cmp);
 		}
+		nmemb = a_size;
 
-		if (s_size <= a_size / 16 || a_size <= CRUM_OUT)
+		if (s_size <= a_size / 32 || a_size <= CRUM_OUT)
 		{
-			if (a_size <= CRUM_OUT)
-			{
-				FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
-				return;
-			}
-			a_size = FUNC(fulcrum_reverse_partition)(array, swap, array, &piv, swap_size, a_size, cmp);
-			s_size = nmemb - a_size;
+			if (a_size <= CRUM_OUT) break;
 
-			if (s_size <= a_size / 16 || a_size <= CRUM_OUT)
-			{
-				FUNC(quadsort_swap)(array, swap, swap_size, a_size, cmp);
-				return;
-			}
-			max = NULL;
+			a_size = FUNC(fulcrum_reverse_partition)(array, swap, array, &piv, swap_size, nmemb, cmp);
+			s_size = nmemb - a_size;
 			nmemb = a_size;
+
+			if (s_size <= a_size / 32 || a_size <= CRUM_OUT) break;
+
+			max = NULL;
 			continue;
 		}
 		max = ptp;
-		nmemb = a_size;
 	}
+	FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
 }
 
 void FUNC(crumsort)(void *array, size_t nmemb, CMPFUNC *cmp)
 {
-	if (nmemb <= 132)
+	if (nmemb <= 256)
 	{
-		return FUNC(quadsort)(array, nmemb, cmp);
+		VAR swap[nmemb];
+
+		FUNC(quadsort_swap)(array, swap, nmemb, nmemb, cmp);
+
+		return;
 	}
 	VAR *pta = (VAR *) array;
 #if CRUM_AUX
@@ -558,7 +507,7 @@ void FUNC(crumsort)(void *array, size_t nmemb, CMPFUNC *cmp)
 
 void FUNC(crumsort_swap)(void *array, void *swap, size_t swap_size, size_t nmemb, CMPFUNC *cmp)
 {
-	if (nmemb <= 132)
+	if (nmemb <= 256)
 	{
 		FUNC(quadsort_swap)(array, swap, swap_size, nmemb, cmp);
 	}
